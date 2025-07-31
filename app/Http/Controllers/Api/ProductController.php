@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
-
+use App\Models\Wishlist;
+use Illuminate\Support\Facades\Auth;
 class ProductController extends Controller
 {
     public function ProductList(Request $request)
@@ -35,6 +36,13 @@ class ProductController extends Controller
     {
         $product = Product::with(['details', 'licenseKeys', 'searchIndexes', 'category', 'user', 'images', 'variations', 'defaultVariationOptions', 'mainImage'])
         ->where('category_id', $category_id)
+        ->paginate(10);
+        return response()->json($product);
+    }
+
+    public function getWhishlistProductsByUser(){
+        $product = Wishlist::with(['product.details', 'product.licenseKeys', 'product.searchIndexes', 'product.category', 'product.user', 'product.images', 'product.variations', 'product.defaultVariationOptions', 'product.mainImage'])
+        ->where('user_id', Auth::user()->id)
         ->paginate(10);
         return response()->json($product);
     }

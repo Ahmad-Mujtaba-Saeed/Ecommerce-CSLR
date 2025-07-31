@@ -6,11 +6,6 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ProductController;
 
 
-
-
-
-
-
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
@@ -28,11 +23,13 @@ Route::prefix('product')->group(function () {
 });
 
 
-
 Route::middleware('auth:sanctum')->group(function () {
-
+    
     Route::prefix('user')->group(function () {
         Route::get('/index', [UserController::class, 'index']);
         Route::post('/change-password', [UserController::class, 'changePassword']);
+    });
+    Route::prefix('wishlist')->group(function () {
+        Route::get('/list', [ProductController::class, 'getWhishlistProductsByUser']);
     });
 });

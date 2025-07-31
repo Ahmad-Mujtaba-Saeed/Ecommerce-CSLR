@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -285,6 +286,51 @@ class User extends Authenticatable
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Get the wishlist items for the user.
+     */
+    public function wishlist()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
+
+    /**
+     * Get the products in the user's wishlist.
+     */
+    public function wishlistProducts()
+    {
+        return $this->belongsToMany(Product::class, 'wishlist', 'user_id', 'product_id')
+            ->withTimestamps()
+            ->withPivot('id');
+    }
+
+    /**
+     * Check if a product is in the user's wishlist.
+     */
+    public function hasInWishlist($productId)
+    {
+        return $this->wishlist()->where('product_id', $productId)->exists();
+    }
+
+    /**
+     * Add a product to the user's wishlist.
+     */
+    public function addToWishlist($productId)
+    {
+        if (!$this->hasInWishlist($productId)) {
+            return $this->wishlist()->create(['product_id' => $productId]);
+        }
+        return null;
+    }
+
+    /**
+     * Remove a product from the user's wishlist.
+     */
+    public function removeFromWishlist($productId)
+    {
+        return $this->wishlist()->where('product_id', $productId)->delete();
     }
 
     /**

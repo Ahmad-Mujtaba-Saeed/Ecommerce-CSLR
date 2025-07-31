@@ -244,6 +244,40 @@ class Product extends Model
         )->where('is_default', true);
     }
 
+    /**
+     * Get the wishlist items for this product.
+     */
+    public function wishlistItems()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
+
+    /**
+     * Get the users who have this product in their wishlist.
+     */
+    public function wishlistedBy()
+    {
+        return $this->belongsToMany(User::class, 'wishlist', 'product_id', 'user_id')
+            ->withTimestamps()
+            ->withPivot('id');
+    }
+
+    /**
+     * Check if the product is in a specific user's wishlist.
+     */
+    public function isInUserWishlist($userId)
+    {
+        return $this->wishlistItems()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Get the count of users who have this product in their wishlist.
+     */
+    public function wishlistCount()
+    {
+        return $this->wishlistItems()->count();
+    }
+
     public function getDiscountPercentageAttribute()
     {
         if ($this->price_discounted > 0 && $this->price > 0) {
