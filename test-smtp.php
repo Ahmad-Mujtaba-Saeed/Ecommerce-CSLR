@@ -10,13 +10,13 @@ use Swift_Message as Message;
 $smtpHost = 'smtp.hostinger.com';
 $smtpPort = 465;
 $smtpEncryption = 'ssl';
-$smtpUsername = 'equitycircle@techtrack.online';
+$smtpUsername = 'noreply@equitycircle.cloud';
 $smtpPassword = 'EquityCircle2025!@';
 
 // Email details
-$fromEmail = 'equitycircle@techtrack.online';
+$fromEmail = 'noreply@equitycircle.cloud';
 $fromName = 'SCLR';
-$toEmail = 'mtestacc2321@gmail.com';
+$toEmail = 'ahmadmujtabap70@gmail.com';
 $subject = 'Test Email via SMTP';
 $messageText = 'This is a test email sent directly via SMTP at ' . date('Y-m-d H:i:s');
 

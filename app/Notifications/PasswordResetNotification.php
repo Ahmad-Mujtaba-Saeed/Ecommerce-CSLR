@@ -2,18 +2,13 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 
-class PasswordResetNotification extends Notification implements ShouldQueue
+class PasswordResetNotification extends Notification
 {
-    use Queueable;
-
     public $code;
-    public $tries = 3; // Number of times the job may be attempted
 
     /**
      * Create a new notification instance.
@@ -55,7 +50,7 @@ class PasswordResetNotification extends Notification implements ShouldQueue
         } catch (\Exception $e) {
             Log::error('Failed to send password reset email: ' . $e->getMessage(), [
                 'email' => $notifiable->email,
-                'exception' => $e
+                'exception' => $e->getMessage()
             ]);
             throw $e; // Re-throw to allow for retries
         }
