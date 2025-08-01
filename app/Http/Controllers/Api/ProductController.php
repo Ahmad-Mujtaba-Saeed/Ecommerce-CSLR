@@ -40,10 +40,5 @@ class ProductController extends Controller
         return response()->json($product);
     }
 
-    public function getWhishlistProductsByUser(){
-        $product = Wishlist::with(['product.details', 'product.licenseKeys', 'product.searchIndexes', 'product.category', 'product.user', 'product.images', 'product.variations', 'product.defaultVariationOptions', 'product.mainImage'])
-        ->where('user_id', Auth::user()->id)
-        ->paginate(10);
-        return response()->json($product);
-    }
+
 }
