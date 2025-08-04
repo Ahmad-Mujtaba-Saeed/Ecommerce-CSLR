@@ -6,15 +6,20 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\WishListController;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\CategoryController;
+
+Route::prefix('v1')->group(function () {
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
     
-    // Password reset routes
     Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('verify-reset-code', [AuthController::class, 'verifyResetCode']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
+});
+Route::prefix('category')->group(function () {
+    Route::get('/list', [CategoryController::class, 'index']);
 });
 Route::prefix('product')->group(function () {
     Route::get('/list', [ProductController::class, 'ProductList']);
@@ -33,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/change-password', [UserController::class, 'changePassword']);
     });
 
+
     Route::prefix('cart')->group(function () {
         Route::get('/index', [CartController::class, 'index']);
         Route::post('/add', [CartController::class, 'add']);
@@ -43,4 +49,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/remove/{product_id}', [WishListController::class, 'removeFromWishlist']);
         Route::get('/list', [WishListController::class, 'getWhishlistProductsByUser']);
     });
+});
+    
 });
