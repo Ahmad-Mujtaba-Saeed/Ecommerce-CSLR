@@ -5,25 +5,149 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Cart;
+use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
-    public function index()
+    /**
+     * Get cart for the authenticated user or by cart_id (guest)
+     */
+    public function index(Request $request)
     {
-        $cartItems = Cart::forCurrentUser()->with(['product.details', 'product.licenseKeys', 'product.searchIndexes', 'product.category', 'product.user', 'product.images', 'product.variations', 'product.defaultVariationOptions', 'product.mainImage'])->get();
-        return response()->json($cartItems);
+        $cartId = $request->input('cart_id');
+
+        $cart = $cartId
+            ? Cart::where('cart_id', $cartId)->first()
+            : Cart::where('customer_id', Auth::id())->first();
+
+        if (!$cart) {
+            return response()->json([
+                'message' => 'Cart not found',
+                'cart_id' => null,
+                'products' => [],
+            ]);
+        }
+
+        return response()->json([
+            'cart_id' => $cart->cart_id,
+            'products' => $cart->products_data ?? [],
+        ]);
     }
 
+    /**
+     * Add item to new or existing cart
+     */
     public function add(Request $request)
     {
-        $cartItem = Cart::addOrUpdateItem($request->all());
-        return response()->json($cartItem);
+        $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+            'variation_option_id' => 'nullable|integer',
+            'cart_id' => 'nullable|string',
+        ]);
+
+        // get product info from DB
+        $product = \App\Models\Product::with('mainImage')
+                    ->where('id', $request->product_id)
+                    ->active()
+                    ->firstOrFail();
+
+        $cart = Cart::findOrCreateCart($request->input('cart_id'));
+
+        $cart->addItem([
+            'product_id' => $product->id,
+            'variation_option_id' => $request->variation_option_id,
+            'product_name' => $product->slug, // or $product->details->title if you prefer
+            'product_price' => $product->price_discounted > 0 ? $product->price_discounted : $product->price,
+            'product_image' => $product->mainImage?->url ?? null,
+            'quantity' => $request->quantity,
+        ]);
+
+        return response()->json([
+            'message' => 'Product added to cart',
+            'cart_id' => $cart->cart_id,
+            'products' => $cart->products_data,
+        ]);
     }
 
-    public function remove($cartItemId)
+
+    /**
+     * Remove an item from cart
+     */
+    public function remove(Request $request)
     {
-        $cartItem = Cart::forCurrentUser()->where('cart_item_id', $cartItemId)->first();
-        $cartItem->delete();
-        return response()->json($cartItem);
+        $request->validate([
+            'cart_id' => 'required|string',
+            'product_id' => 'required|integer',
+            'variation_option_id' => 'nullable|integer',
+        ]);
+
+        $cart = Cart::where('cart_id', $request->input('cart_id'))->firstOrFail();
+        $cart->removeItem($request->product_id, $request->variation_option_id);
+
+        return response()->json([
+            'message' => 'Product removed from cart',
+            'products' => $cart->products_data,
+        ]);
     }
+
+    /**
+     * Clear all items from the cart
+     */
+    public function clear(Request $request)
+    {
+        $request->validate([
+            'cart_id' => 'required|string',
+        ]);
+
+        $cart = Cart::where('cart_id', $request->input('cart_id'))->firstOrFail();
+        $cart->clearItems();
+
+        return response()->json([
+            'message' => 'Cart cleared',
+            'products' => [],
+        ]);
+    }
+
+    public function checkout(Request $request)
+    {
+        $request->validate([
+            'cart_id' => 'required|string',
+        ]);
+
+        $cart = Cart::where('cart_id', $request->input('cart_id'))->first();
+
+        if (!$cart || empty($cart->products_data)) {
+            return response()->json([
+                'message' => 'Cart not found or empty',
+                'cart_id' => $request->input('cart_id'),
+                'products' => [],
+                'total_price' => 0,
+            ]);
+        }
+
+        $products = $cart->products_data;
+        $grandTotal = 0;
+
+        $formattedProducts = collect($products)->map(function ($product) use (&$grandTotal) {
+            $total = isset($product['total_price']) ? $product['total_price'] : 0;
+            $grandTotal += $total;
+
+            return [
+                'product_id'   => $product['product_id'] ?? null,
+                'name'         => $product['product_name'] ?? '',
+                'image'        => $product['product_image '] ?? '',
+                'quantity'     => $product['quantity'] ?? 1,
+                'unit_price'   => $product['unit_price'] ?? 0,
+                'total_price'  => $total,
+            ];
+        });
+
+        return response()->json([
+            'cart_id'      => $cart->cart_id,
+            'products'     => $formattedProducts,
+            'total_price'  => $grandTotal,
+        ]);
+    }
+
 }

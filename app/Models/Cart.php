@@ -3,110 +3,103 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class Cart extends Model
 {
     protected $table = 'cart_products';
-    
+
     protected $fillable = [
-        'user_id',
-        'product_id',
-        'variation_option_id',
-        'quantity',
-        'cart_item_id',
+        'cart_id',
+        'customer_id',
+        'products_data',
+        'instance',
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'products_data' => 'array',
     ];
 
-    /**
-     * The "booting" method of the model.
-     */
     protected static function booted()
     {
         static::creating(function ($cart) {
-            if (empty($cart->cart_item_id)) {
-                $cart->cart_item_id = (string) Str::uuid();
+            if (empty($cart->cart_id)) {
+                $cart->cart_id = (string) Str::uuid();
+            }
+
+            if (Auth::check() && empty($cart->customer_id)) {
+                $cart->customer_id = Auth::id();
             }
         });
     }
 
-    /**
-     * Get the user that owns the cart item.
-     */
-    public function user(): BelongsTo
+    public static function findOrCreateCart($cartId = null): self
     {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the product associated with the cart item.
-     */
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
-
-    /**
-     * Get the variation option associated with the cart item.
-     */
-    public function variationOption(): BelongsTo
-    {
-        return $this->belongsTo(VariationOption::class, 'variation_option_id');
-    }
-
-    /**
-     * Scope a query to only include items for the current authenticated user.
-     */
-    public function scopeForCurrentUser($query)
-    {
-        return $query->where('user_id', Auth::id());
-    }
-
-    /**
-     * Add or update a product in the cart.
-     */
-    public static function addOrUpdateItem(array $data): self
-    {
-        $userId = Auth::id();
-        $cartItemId = $data['cart_item_id'] ?? null;
-        
-        $item = self::where('user_id', $userId)
-            ->where('product_id', $data['product_id'])
-            ->when(isset($data['variation_option_id']), function($query) use ($data) {
-                $query->where('variation_option_id', $data['variation_option_id']);
-            }, function($query) {
-                $query->whereNull('variation_option_id');
-            })
-            ->first();
-
-        if ($item) {
-            // Update existing item
-            $item->update([
-                'quantity' => $item->quantity + ($data['quantity'] ?? 1),
+        if ($cartId) {
+            return self::firstOrCreate(['cart_id' => $cartId], [
+                'products_data' => [],
+                'customer_id' => Auth::id(),
             ]);
-            return $item;
         }
 
-        // Create new item
         return self::create([
-            'user_id' => $userId,
-            'product_id' => $data['product_id'],
-            'variation_option_id' => $data['variation_option_id'] ?? null,
-            'quantity' => $data['quantity'] ?? 1,
+            'cart_id' => (string) Str::uuid(),
+            'customer_id' => Auth::id(),
+            'products_data' => [],
         ]);
     }
 
-    /**
-     * Get the cart items count for the current user.
-     */
-    public static function getCartCount(): int
+    public function addItem(array $item): void
     {
-        return self::where('user_id', Auth::id())->sum('quantity');
+        $products = collect($this->products_data ?? []);
+
+        $existingKey = $products->search(function ($p) use ($item) {
+            return $p['product_id'] == $item['product_id'] &&
+                   ($p['variation_option_id'] ?? null) == ($item['variation_option_id'] ?? null);
+        });
+
+        if ($existingKey !== false) {
+            $products[$existingKey]['quantity'] += $item['quantity'] ?? 1;
+            $products[$existingKey]['total_price'] =  $products[$existingKey]['quantity'] * $products[$existingKey]['product_price'];
+            $products[$existingKey]['unit_price'] = $item['unit_price'] ?? $products[$existingKey]['unit_price'];
+            $products[$existingKey]['seller_id'] = $item['seller_id'] ?? $products[$existingKey]['seller_id'];
+        } else {
+            $products->push([
+                'product_id' => $item['product_id'],
+                'variation_option_id' => $item['variation_option_id'] ?? null,
+                'product_name' => $item['product_name'] ?? null,
+                'product_price' => $item['product_price'] ?? 0,
+                'product_image' => $item['product_image'] ?? null,
+                'quantity' => $item['quantity'] ?? 1,
+                'total_price' => ($item['product_price'] ?? 0) * ($item['quantity'] ?? 1),
+
+                'unit_price' => $item['unit_price'] ?? $item['product_price'] ?? 0,
+                'seller_id' => $item['seller_id'] ?? null,
+                'product_type' => $item['product_type'] ?? 'physical',
+            ]);
+        }
+
+        $this->products_data = $products;
+        $this->save();
+    }
+
+    public function removeItem($productId, $variationId = null): void
+    {
+        $this->products_data = collect($this->products_data)
+            ->reject(function ($item) use ($productId, $variationId) {
+                return $item['product_id'] == $productId &&
+                       ($item['variation_option_id'] ?? null) == $variationId;
+            })
+            ->values()
+            ->toArray();
+
+        $this->save();
+    }
+
+    public function clearItems(): void
+    {
+        $this->products_data = [];
+        $this->save();
     }
 }
