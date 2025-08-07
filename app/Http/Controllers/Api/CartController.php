@@ -150,4 +150,51 @@ class CartController extends Controller
         ]);
     }
 
+
+    public function updateQuantity(Request $request)
+    {
+        $request->validate([
+            'cart_id' => 'required|string',
+            'product_id' => 'required|integer',
+            'quantity' => 'required|integer|min:1',
+            'variation_option_id' => 'nullable|integer',
+        ]);
+
+        $cart = \App\Models\Cart::where('cart_id', $request->cart_id)->first();
+
+        if (!$cart) {
+            return response()->json(['message' => 'Cart not found'], 404);
+        }
+
+        $products = collect($cart->products_data);
+
+        $productFound = false;
+
+        $products = $products->map(function ($item) use ($request, &$productFound) {
+            if (
+                $item['product_id'] == $request->product_id &&
+                ($item['variation_option_id'] ?? null) == ($request->variation_option_id ?? null)
+            ) {
+                $item['quantity'] = $request->quantity;
+                $item['total_price'] = $item['product_price'] * $request->quantity;
+                $productFound = true;
+            }
+            return $item;
+        });
+
+        if (!$productFound) {
+            return response()->json(['message' => 'Product not found in cart'], 404);
+        }
+
+        $cart->products_data = $products->values()->toArray();
+        $cart->save();
+
+        return response()->json([
+            'message' => 'Product quantity updated',
+            'cart_id' => $cart->cart_id,
+            'products' => $cart->products_data,
+        ]);
+    }
+
+
 }

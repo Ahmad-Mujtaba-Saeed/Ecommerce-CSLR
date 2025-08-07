@@ -10,6 +10,8 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderProduct;
 use App\Models\ShippingAddress;
+use Illuminate\Support\Facades\Http;
+
 
 class OrderController extends Controller
 {
@@ -17,10 +19,33 @@ class OrderController extends Controller
     public function getUserOrders(Request $request)
     {
         $user = $request->user();
+        $orderId = $request->query('order_id'); // optional query param
 
-        $orders = Order::with('orderProducts') // eager load related products
+        if ($orderId) {
+            // Get a single order
+            $order = Order::with('orderProducts')
+                ->where('id', $orderId)
+                ->where('buyer_id', $user->id)
+                ->where('buyer_type', 'customer')
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found or unauthorized.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'order' => $order
+            ]);
+        }
+
+        // Otherwise, get all orders
+        $orders = Order::with('orderProducts')
             ->where('buyer_id', $user->id)
-            ->where('buyer_type', 'customer') // adjust if needed
+            ->where('buyer_type', 'customer')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -29,6 +54,7 @@ class OrderController extends Controller
             'orders' => $orders
         ]);
     }
+
 
 
 
@@ -179,7 +205,7 @@ class OrderController extends Controller
         }
 
         if ($method === 'paypal') {
-            // Assume success for now
+           // Assume success for now
             return 'success';
         }
 

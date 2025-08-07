@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/remove', [CartController::class, 'remove']);
         Route::delete('/clear', [CartController::class, 'clear']);
         Route::post('/checkout', [CartController::class, 'checkout']);
+        Route::post('/update-quantity', [CartController::class, 'updateQuantity']);
 
     });
     Route::prefix('wishlist')->group(function () {
