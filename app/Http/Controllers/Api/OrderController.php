@@ -211,4 +211,57 @@ class OrderController extends Controller
 
         return 'failed';
     }
+
+    public function cancelOrder(Request $request)
+    {
+        $user = $request->user();
+        $orderId = $request->input('order_id');
+
+        if (!$orderId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order ID is required'
+            ], 400);
+        }
+
+        // Fetch the order
+        $order = Order::with('orderProducts')
+            ->where('id', $orderId)
+            ->where('buyer_id', $user->id)
+            ->where('buyer_type', 'customer')
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found or unauthorized'
+            ], 404);
+        }
+
+        // Check if order is cancelable
+        $cancelable = $order->orderProducts->every(function ($item) {
+            return $item->order_status === 'pending';
+        });
+
+        if (!$cancelable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only orders with pending status can be cancelled'
+            ], 400);
+        }
+
+        // Cancel order and its products
+        foreach ($order->orderProducts as $item) {
+            $item->update(['order_status' => 'cancelled']);
+        }
+
+        $order->update(['status' => 0, 'payment_status' => 'cancelled']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order cancelled successfully',
+            'order_id' => $order
+        ]);
+    }
+
 }

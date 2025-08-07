@@ -11,9 +11,39 @@ class ProductController extends Controller
 {
     public function ProductList(Request $request)
     {
-        $product = Product::with(['details', 'licenseKeys', 'searchIndexes', 'category', 'user', 'images', 'variations', 'defaultVariationOptions', 'mainImage'])->paginate(10);
-        return response()->json($product);
+        $productId = $request->query('product_id');
+
+        if ($productId) {
+            $product = Product::with([
+                'details', 'licenseKeys', 'searchIndexes', 'category',
+                'user', 'images', 'variations', 'defaultVariationOptions', 'mainImage'
+            ])->find($productId);
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'product' => $product
+            ]);
+        }
+
+        // Otherwise return paginated list
+        $products = Product::with([
+            'details', 'licenseKeys', 'searchIndexes', 'category',
+            'user', 'images', 'variations', 'defaultVariationOptions', 'mainImage'
+        ])->paginate(10);
+
+        return response()->json([
+            'success' => true,
+            'products' => $products
+        ]);
     }
+
 
     public function getSpecialOfferProducts()
     {
@@ -39,6 +69,35 @@ class ProductController extends Controller
         ->paginate(10);
         return response()->json($product);
     }
+
+    public function search(Request $request)
+    {
+        $keyword = $request->query('keyword');
+
+        if (!$keyword) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Keyword is required'
+            ], 400);
+        }
+
+        $products = Product::whereHas('details', function ($query) use ($keyword) {
+                $query->where('title', 'LIKE', "%{$keyword}%");
+            })
+            ->with([
+                'details', 'licenseKeys', 'searchIndexes', 'category',
+                'user', 'images', 'variations', 'defaultVariationOptions', 'mainImage'
+            ])
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'products' => $products
+        ]);
+    }
+
+
 
 
 }

@@ -27,6 +27,7 @@ Route::prefix('product')->group(function () {
     Route::get('/special-offers', [ProductController::class, 'getSpecialOfferProducts']);
     Route::get('/promoted', [ProductController::class, 'getPromotedProducts']);
     Route::get('/category/{category_id}', [ProductController::class, 'getProductsByCategory']);
+    Route::get('/search', [ProductController::class, 'search']);
 });
 
 
@@ -57,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('order')->group(function () {
         Route::post('/checkout', [OrderController::class, 'createOrder']);
         Route::get('/getOrders', [OrderController::class, 'getUserOrders']);
+        Route::post('/cancel', [OrderController::class, 'cancelOrder']);
     });
 
 });
